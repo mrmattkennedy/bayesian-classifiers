@@ -48,18 +48,19 @@ class naive_bayes():
             #Check each word and append likelihood for each type
             for word in article[1:]:
                 for a_type in types:
-                    likelihoods[a_type] += math.log((self.word_counts[a_type][word] + 0.00000001) / (self.class_counts[a_type] + 1))
+                    #Scalar additions are for smoothing. Small amt to numerator so weight is all on word frequency
+                    likelihoods[a_type] += math.log((self.word_counts[a_type][word] + 1e-50) / (self.class_counts[a_type] + 1))
             
             #Multiply by the actual count
             for a_type in types:
-                posterior[a_type] = (likelihoods[a_type] * math.log(self.class_probabilities[a_type])) / (normalizer[a_type] + 1)
+                posterior[a_type] = likelihoods[a_type] * math.log(self.class_probabilities[a_type])
 
             #Get the max
             maximum = max(posterior, key=posterior.get)
             if correct_type == maximum:
                 correct_count += 1
 
-        print(correct_count / len(self.articles))
+        print("Accuracy: {}%".format(round((correct_count * 100) / len(self.articles), 4)))
         print("Right: {}/{}\nWrong: {}/{}".format(correct_count, len(self.articles), len(self.articles) - correct_count, len(self.articles)))
 
 start = time.time()
