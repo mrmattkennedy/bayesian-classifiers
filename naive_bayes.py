@@ -3,13 +3,14 @@ import math
 import time
 import random
 import collections
+from nltk.stem.snowball import SnowballStemmer
 
 class naive_bayes():
     def __init__(self, verbose=True):
         self.verbose = verbose
         self.stop_words = [word.rstrip('\n') for word in open('data/stopwords.data', 'r')]
         
-    def load_word_counts(self, split=None):
+    def load_word_counts(self, split=None, stem=False):
         #Initialize data
         train = [line.rstrip('\n').split(' ') for line in open('data/forumTraining.data', 'r')]
         test = [line.rstrip('\n').split(' ') for line in open('data/forumTest.data', 'r')]
@@ -21,10 +22,13 @@ class naive_bayes():
         self.class_probabilities = collections.defaultdict(int)
         
         #Remove stopwords and stem
+        stemmer = SnowballStemmer("english")
         for article in self.articles:
             for word in range(len(article) - 1, 1, -1):
                 if article[word] in self.stop_words:
                     del article[word]
+                elif stem:
+                    article[word] = stemmer.stem(article[word])
                     
         #Split into train and test
         random.shuffle(self.articles)
@@ -76,29 +80,37 @@ class naive_bayes():
             
         return round((correct_count * 100) / len(self.test), 4)
 
-    def get_results(self, start, stop, step=500, avg_iters=5):
+    def get_results(self, start, stop, step=500, avg_iters=5, stem=False):
         data = []
-        #Classify for each train size from start to stop + 1 with step.
+        
         for i in range(start, stop + 1, step):
             #Reset the average
             avg = 0
+            avg_time = 0
+            
             for _ in range(avg_iters):
                 #See how long it takes
-                start = time.time()
-                self.load_word_counts(i)
+                start_time = time.time()
+                self.load_word_counts(i, stem)
                 results = self.classify()
-                avg += results
 
+                total_time = round(time.time() - start_time, 4)
+                avg += results
+                avg_time += total_time
+                
                 #If verbose, print info
                 if self.verbose:
-                    print("Time: {}".format(round(time.time() - start, 3)))
+                    print("Time: {}".format(total_time))
                     print(i)
                     print("---------------\n")
 
-            #Append i and average for i
-            data.append([str(i), str(round(avg / avg_iters, 4))])
-
-        with open("data/results.data", "w") as file:
+            #Append i and average for i as well as time
+            data.append([str(i), str(round(avg / avg_iters, 4)), str(round(avg_time / avg_iters, 4))])
+            
+        #avg_time = round(avg_time / ((math.floor((stop - start) / step) + 1) * avg_iters), 4)
+        results_path = "data/results.data" if not stem else "data/results_stem.data"
+        with open(results_path, "w") as file:
+            #file.write(str(avg_time) + '\n')
             for row in data:
                 line = ",".join(row)
                 file.write(line + '\n')
@@ -111,27 +123,41 @@ class naive_bayes():
 
         #Get results
         results = [line.rstrip("\n").split(',') for line in open('data/results.data', 'r')]
+        stem_results = [line.rstrip("\n").split(',') for line in open('data/results_stem.data', 'r')]
+        
         train_size = [int(elem[0]) for elem in results]
         accuracy = [float(elem[1]) for elem in results]
+        times = [float(elem[2]) for elem in results]
+        stem_train_size = [int(elem[0]) for elem in stem_results]
+        stem_accuracy = [float(elem[1]) for elem in stem_results]
+        stem_times = [float(elem[2]) for elem in stem_results]
 
         #Get best quadratic fit
         x = np.array(train_size)
         y = np.array(accuracy)
-        fit_coefficients = np.polyfit(x, y, 4)
-        fit = np.poly1d(fit_coefficients)
+        fit = np.poly1d(np.polyfit(x, y, 4))
+
+        x_stem = np.array(stem_train_size)
+        y_stem = np.array(stem_accuracy)
+        fit_stem = np.poly1d(np.polyfit(x_stem, y_stem, 4))
 
         #Plot
-        plt.figure().canvas.set_window_title("Train size vs accuracy")
-        print(fit_coefficients)
-        plt.plot(train_size, accuracy, '-o')
-        plt.plot(x, fit(x))
-        plt.grid()
-        plt.show()
+        fig, (axs1, axs2) = plt.subplots(2)
+        fig.canvas.set_window_title("Train size vs accuracy")
+        fig.suptitle("Train size vs accuracy")
+        axs1.plot(train_size, accuracy, '-o')
+        axs1.plot(train_size, times, '-s')
+        axs1.plot(x, fit(x))
+        axs1.grid()
+
+        axs2.plot(stem_train_size, stem_accuracy, '-o')
+        axs2.plot(stem_train_size, stem_times, '-s')
+        axs2.plot(x_stem, fit_stem(x_stem))
+        axs2.grid()
+        fig.show()
 
 data = []
 temp = naive_bayes(verbose=True)
-temp.get_results(start = 1000, stop = 18000, step = 500, avg_iters=5)
-#temp.load_word_counts()
-#temp.visualize()
-#results = temp.classify()
+temp.get_results(start = 1000, stop = 18000, step = 500, avg_iters=4, stem=False)
+temp.visualize()
 
