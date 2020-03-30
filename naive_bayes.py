@@ -2,6 +2,7 @@ import pdb
 import math
 import time
 import random
+import threading
 import collections
 from nltk.stem.snowball import SnowballStemmer
 
@@ -124,7 +125,8 @@ class naive_bayes():
         #Get results
         results = [line.rstrip("\n").split(',') for line in open('data/results.data', 'r')]
         stem_results = [line.rstrip("\n").split(',') for line in open('data/results_stem.data', 'r')]
-        
+
+        #Fill data
         train_size = [int(elem[0]) for elem in results]
         accuracy = [float(elem[1]) for elem in results]
         times = [float(elem[2]) for elem in results]
@@ -145,42 +147,46 @@ class naive_bayes():
         fit_stem = np.poly1d(np.polyfit(x_stem, y_stem, 4))
         fit_stem_time = np.poly1d(np.polyfit(x_stem, avg_stem_times, 4))
 
+        #Get y ranges
+        min_y_acc = min(min(accuracy), min(stem_accuracy))
+        min_y_acc = 5 * round(min_y_acc / 5)
+        max_y_acc = 100
+
+        min_y_times = min(min(times), min(stem_times))
+        min_y_times = 5 * round(min_y_times / 5)
+        max_y_times = max(max(times), max(stem_times))
+        max_y_times = int(math.ceil((max_y_times + 1) / 10.0)) * 10
+        
         #Plot
-        fig, axs = plt.subplots(2, 2, figsize=(8.5,6.5))
-        plt.subplots_adjust(left=0.07, bottom=0.07, right=0.93, top=0.93, wspace = 0.20, hspace=0.33)
+        fig, axs = plt.subplots(2, figsize=(8.5,6.5))
         fig.canvas.set_window_title("Naive Bayes Document Classification")
-        #fig.suptitle("Train size vs accuracy, unstemmed")
-        axs[0, 0].set_title("Train size vs accuracy, unstemmed", fontsize=9)
-        axs[0, 0].set_xlabel("Train set size", fontsize=7)
-        axs[0, 0].set_ylabel("Accuracy (%)", fontsize=7)
-        axs[0, 0].plot(train_size, accuracy, '-o')
-        axs[0, 0].plot(x, fit(x))
-        axs[0, 0].grid()
+        plt.subplots_adjust(left=0.07, bottom=0.07, right=0.93, top=0.93, wspace = 0.20, hspace=0.33)
+        
+        axs[0].set_title("Train size vs accuracy, unstemmed", fontsize=9)
+        axs[0].set_xlabel("Train set size", fontsize=7)
+        axs[0].set_ylabel("Accuracy (%)", fontsize=7)
+        l1, = axs[0].plot(train_size, accuracy, '-o')
+        l2, = axs[0].plot(x, fit(x))
+        l3, = axs[0].plot(stem_train_size, stem_accuracy, '-s')
+        l4, = axs[0].plot(x_stem, fit_stem(x_stem))
+        axs[0].legend((l1, l2, l3, l4), ('Unstemmed', 'Unstemmed fit', 'Stemmed', 'Stemmed fit'), loc='lower right', shadow=True)
+        axs[0].set_ylim((min_y_acc, max_y_acc))
+        axs[0].grid()
 
-        axs[0, 1].set_title("Train size vs accuracy, stemmed", fontsize=9)
-        axs[0, 1].set_xlabel("Train set size", fontsize=7)
-        axs[0, 1].set_ylabel("Accuracy (%)", fontsize=7)
-        axs[0, 1].plot(stem_train_size, stem_accuracy, '-o')
-        axs[0, 1].plot(x_stem, fit_stem(x_stem))
-        axs[0, 1].grid()
+        axs[1].set_title("Train size vs time, unstemmed", fontsize=9)
+        axs[1].set_xlabel("Train set size", fontsize=7)
+        axs[1].set_ylabel("Time (s)", fontsize=7)
+        l1, = axs[1].plot(train_size, times, '-o')
+        l2, = axs[1].plot(x, fit_time(x))
+        l3, = axs[1].plot(stem_train_size, stem_times, '-s')
+        l4, = axs[1].plot(x_stem, fit_stem_time(x_stem))
+        axs[1].legend((l1, l2, l3, l4), ('Unstemmed', 'Unstemmed fit', 'Stemmed', 'Stemmed fit'), loc='upper right', shadow=True)
+        axs[1].set_ylim((min_y_times, max_y_times))
+        axs[1].grid()
 
-        axs[1, 0].set_title("Train size vs time, unstemmed", fontsize=9)
-        axs[1, 0].set_xlabel("Train set size", fontsize=7)
-        axs[1, 0].set_ylabel("Time (s)", fontsize=7)
-        axs[1, 0].plot(train_size, times, '-s')
-        axs[1, 0].plot(x, fit_time(x))
-        axs[1, 0].grid()
-
-        axs[1, 1].set_title("Train size vs time, stemmed", fontsize=9)
-        axs[1, 1].set_xlabel("Train set size", fontsize=7)
-        axs[1, 1].set_ylabel("Time (s)", fontsize=7)
-        axs[1, 1].plot(stem_train_size, stem_times, '-s')
-        axs[1, 1].plot(x_stem, fit_stem_time(x_stem))
-        axs[1, 1].grid()
         fig.show()
 
-data = []
 temp = naive_bayes(verbose=True)
-#temp.get_results(start = 1000, stop = 18000, step = 1000, avg_iters=3, stem=False)
-#temp.get_results(start = 1000, stop = 18000, step = 1000, avg_iters=3, stem=True)
+#temp.get_results(start = 500, stop = 18000, step = 500, avg_iters=15, stem=False)
+#temp.get_results(start = 500, stop = 18000, step = 500, avg_iters=15, stem=True)
 temp.visualize()
